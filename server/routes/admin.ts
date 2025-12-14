@@ -277,10 +277,10 @@ router.post(
             await executeQuery(
                 "admin",
                 undefined,
-                `INSERT INTO purchases (app_id, employee_id, purchase_date, cost_price)
-       VALUES ($1, $2, CURRENT_DATE, $3)
+                `INSERT INTO purchases (app_id, employee_id, purchase_date, cost_price, provider_id)
+       VALUES ($1, $2, CURRENT_DATE, $3, $4)
        RETURNING purchase_id`,
-                [app_id, employee_id, cost_price]
+                [app_id, employee_id, cost_price, provider_id]
             );
 
             return res.status(201).json({
