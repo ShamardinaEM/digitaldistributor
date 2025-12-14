@@ -211,8 +211,8 @@ router.post("/requests/:id/messages", authGuard, requireRole("support", "admin")
   }
 });
 
-// Закрыть заявку (только администратор)
-router.patch("/requests/:id/close", authGuard, requireRole("admin"), async (req: AuthenticatedRequest, res) => {
+// Закрыть заявку 
+router.patch("/requests/:id/close", authGuard, requireRole("admin", "support"), async (req: AuthenticatedRequest, res) => {
   const requestId = Number(req.params.id);
   if (!requestId) {
     return res.status(400).json({ message: "Некорректный идентификатор заявки" });

@@ -290,7 +290,7 @@ export default function SupportPage() {
                 background: "#151b28",
                 padding: 20,
                 borderRadius: 16,
-                height: "70vh",
+                height: "50vh",
                 display: "flex",
                 flexDirection: "column",
               }}
