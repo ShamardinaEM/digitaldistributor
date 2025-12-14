@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { executeQuery, getPoolForRole, superPool } from "../db/pool";
+import { executeQuery, getPoolForRole } from "../db/pool";
 import { authGuard, optionalAuth, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
@@ -15,7 +15,6 @@ export function mapAppRow(row: any) {
     releaseDate: row.release_date,
     category: row.category_title ? { id: row.category_id, title: row.category_title } : null,
     provider: row.provider_name ? { id: row.provider_id, name: row.provider_name, type: row.provider_type, country: row.provider_country || null } : null,
-    imageUrl: row.image_url || null,
   };
 }
 
@@ -34,7 +33,6 @@ router.get("/", async (req, res) => {
                a.price,
                a.release_date,
                a.category_id,
-               a.image_url,
                c.title AS category_title,
                p.provider_id,
                p.provider_name,
@@ -108,7 +106,6 @@ router.get("/owned", authGuard, async (req: AuthenticatedRequest, res) => {
                a.price,
                a.release_date,
                a.category_id,
-               a.image_url,
                c.title AS category_title,
                p.provider_id,
                p.provider_name,
@@ -150,7 +147,6 @@ router.get("/:id", async (req, res) => {
                a.price,
                a.release_date,
                a.category_id,
-               a.image_url,
                c.title AS category_title,
                p.provider_id,
                p.provider_name,
@@ -244,14 +240,18 @@ router.post("/:id/reviews", authGuard, async (req: AuthenticatedRequest, res) =>
     }
 
     // Проверяем, не оставлял ли уже отзыв и что с ним происходит
-    // Используем superPool чтобы гарантированно найти существующий отзыв
-    const existingReview = await superPool.query(
+    // Используем роль admin, чтобы гарантированно найти существующий отзыв
+    const existingReviewResult = await executeQuery(
+      "admin",
+      undefined,
       `SELECT review_id, status FROM reviews WHERE app_id = $1 AND user_id = $2 LIMIT 1`,
       [appId, req.user.userId],
     );
 
-    if (existingReview.rows.length > 0) {
-      const review = existingReview.rows[0];
+    const existingReview = existingReviewResult.rows;
+
+    if (existingReview.length > 0) {
+      const review = existingReview[0];
 
       if (review.status === "На модерации") {
         return res.status(400).json({ message: "Ваш отзыв уже находится на модерации" });
@@ -263,7 +263,12 @@ router.post("/:id/reviews", authGuard, async (req: AuthenticatedRequest, res) =>
 
       if (review.status === "Отклонен") {
         // Удаляем отклоненный отзыв перед созданием нового
-        await superPool.query(`DELETE FROM reviews WHERE review_id = $1`, [review.review_id]);
+        await executeQuery(
+          "admin",
+          undefined,
+          `DELETE FROM reviews WHERE review_id = $1`,
+          [review.review_id],
+        );
       } else {
         return res.status(400).json({ message: "Вы уже оставили отзыв на это приложение" });
       }
@@ -309,8 +314,10 @@ router.get("/:id/reviews", optionalAuth, async (req: AuthenticatedRequest, res) 
   }
 
   try {
-    // Прямой запрос без RLS для публичных опубликованных отзывов
-    const { rows } = await superPool.query(
+    // Прямой запрос без RLS для публичных опубликованных отзывов (используем роль admin)
+    const { rows } = await executeQuery(
+      "admin",
+      undefined,
       `SELECT r.*, u.username as user_username
        FROM reviews r
        INNER JOIN users u ON u.user_id = r.user_id
@@ -322,7 +329,9 @@ router.get("/:id/reviews", optionalAuth, async (req: AuthenticatedRequest, res) 
     let userReview: any = null;
     if (req.user?.userId) {
       // Прямой запрос для получения отзыва текущего пользователя
-      const userReviewResult = await superPool.query(
+      const userReviewResult = await executeQuery(
+        "admin",
+        undefined,
         `SELECT r.*, u.username as user_username
          FROM reviews r
          INNER JOIN users u ON u.user_id = r.user_id

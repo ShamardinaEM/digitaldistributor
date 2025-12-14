@@ -1,9 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useCartStore } from "../../store/cartStore";
 import { authStore } from "../../store/authStore";
 
 export default function MainLayout() {
-  const cartCount = useCartStore((state) => state.items.reduce((acc, item) => acc + item.quantity, 0));
   const user = authStore((state) => state.user);
   const isEmployee = authStore((state) => state.isEmployee);
   const logout = authStore((state) => state.logout);
@@ -29,9 +27,11 @@ export default function MainLayout() {
           Digital Distributor
         </NavLink>
         <nav style={{ display: "flex", gap: 20 }}>
-          <NavLink style={navStyle} to="/">
-            Магазин
-          </NavLink>
+          {
+            <NavLink style={navStyle} to="/">
+              Главная страница
+            </NavLink>
+          }
           {/* Вкладки для сотрудников (по роли, не по isEmployee) */}
           {(role === "moderator" || role === "admin") && (
             <NavLink style={navStyle} to="/moderation">
@@ -48,17 +48,16 @@ export default function MainLayout() {
               Аналитика
             </NavLink>
           )}
+          {role === "admin" && (
+            <NavLink style={navStyle} to="/add-products">
+              Добавление товаров
+            </NavLink>
+          )}
           {/* Вкладки для обычных пользователей */}
           {role === "user" && (
             <>
-              <NavLink style={navStyle} to="/profile">
-                Профиль
-              </NavLink>
               <NavLink style={navStyle} to="/orders">
                 Мои заказы
-              </NavLink>
-              <NavLink style={navStyle} to="/cart">
-                Корзина ({cartCount})
               </NavLink>
               <NavLink style={navStyle} to="/support">
                 Техподдержка

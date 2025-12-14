@@ -49,12 +49,12 @@ export default function AppCard({ app, isOwned = false }: Props) {
     <div
       style={{
         background: "#191f2c",
-        borderRadius: 16,
-        padding: 24,
+        borderRadius: 14,
+        padding: 16,
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        gap: 12,
+        gap: 10,
         border: "1px solid rgba(255,255,255,0.05)",
       }}
     >
@@ -64,10 +64,10 @@ export default function AppCard({ app, isOwned = false }: Props) {
           alt={app.title}
           style={{
             width: "100%",
-            height: 200,
+            height: 140,
             objectFit: "cover",
-            borderRadius: 12,
-            marginBottom: 8,
+            borderRadius: 10,
+            marginBottom: 4,
           }}
         />
       )}
@@ -82,7 +82,12 @@ export default function AppCard({ app, isOwned = false }: Props) {
             </p>
           )}
         </div>
-        <h3 style={{ margin: "4px 0", fontSize: 20 }}>{app.title}</h3>
+        <Link
+          to={`/apps/${app.id}`}
+          style={{ margin: "2px 0", fontSize: 20, fontWeight: 700, color: "white", textDecoration: "none" }}
+        >
+          {app.title}
+        </Link>
         {app.provider && (
           <Link
             to={`/providers/${app.provider.id}`}
@@ -93,61 +98,42 @@ export default function AppCard({ app, isOwned = false }: Props) {
           </Link>
         )}
       </div>
-      <p style={{ color: "#b4bfd6", flexGrow: 1 }}>{app.description.slice(0, 90)}...</p>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}>{app.price.toLocaleString("ru-RU")} ₽</span>
-        <Link style={{ fontSize: 14, color: "#9fb2ff" }} to={`/apps/${app.id}`}>
-          Подробнее
-        </Link>
+      <p style={{ color: "#b4bfd6", flexGrow: 1, margin: "2px 0" }}>{app.description.slice(0, 70)}...</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: 18, fontWeight: 700 }}>{app.price.toLocaleString("ru-RU")} ₽</span>
+        {isOwned ? (
+          <button
+            onClick={() => navigate(`/apps/${app.id}`)}
+            style={actionButtonStyle("linear-gradient(120deg,rgba(250, 181, 91, 0.77),rgba(255, 91, 91, 0.82))")}
+          >
+            Оставить отзыв
+          </button>
+        ) : items.some((item) => item.app.id === app.id) ? (
+          <button
+            onClick={() => navigate("/cart")}
+            style={actionButtonStyle("linear-gradient(120deg, #4a7c5a, #5a9c6a)")}
+          >
+            🛒 В корзине
+          </button>
+        ) : (
+          <button onClick={handleAddToCart} style={actionButtonStyle("linear-gradient(120deg, #5b7cfa, #7a5bff)")}>
+            В корзину
+          </button>
+        )}
       </div>
-      {isOwned ? (
-        <button
-          onClick={() => navigate(`/apps/${app.id}`)}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            cursor: "pointer",
-            background: "linear-gradient(120deg,rgba(250, 181, 91, 0.77),rgba(255, 91, 91, 0.82))",
-            color: "white",
-          }}
-        >
-          Оставить отзыв
-        </button>
-      ) : items.some((item) => item.app.id === app.id) ? (
-        <button
-          onClick={() => navigate("/cart")}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            cursor: "pointer",
-            background: "linear-gradient(120deg, #4a7c5a, #5a9c6a)",
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          <span>🛒</span>
-          Перейти к покупке
-        </button>
-      ) : (
-        <button
-          onClick={handleAddToCart}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "none",
-            cursor: "pointer",
-            background: "linear-gradient(120deg, #5b7cfa, #7a5bff)",
-            color: "white",
-          }}
-        >
-          В корзину
-        </button>
-      )}
     </div>
   );
+}
+
+function actionButtonStyle(background: string) {
+  return {
+    padding: "8px 14px",
+    borderRadius: 10,
+    border: "none",
+    cursor: "pointer",
+    background,
+    color: "white",
+    fontWeight: 600,
+    minWidth: 120,
+  };
 }

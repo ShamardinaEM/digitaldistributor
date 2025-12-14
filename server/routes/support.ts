@@ -85,10 +85,8 @@ router.get("/", authGuard, async (req: AuthenticatedRequest, res) => {
     const { rows } = await executeQuery(
       "user",
       req.user.userId,
-      `SELECT sr.*, 
-              e.username as employee_username
+      `SELECT sr.*
        FROM support_requests sr
-       LEFT JOIN employees e ON e.employee_id = sr.employee_id
        WHERE sr.user_id = $1
        ORDER BY sr.created_at DESC`,
       [req.user.userId],
@@ -102,8 +100,6 @@ router.get("/", authGuard, async (req: AuthenticatedRequest, res) => {
         priority: row.priority,
         status: row.status,
         createdAt: row.created_at,
-        employeeId: row.employee_id,
-        employeeUsername: row.employee_username,
         takenAt: row.taken_at,
       })),
     );
@@ -141,13 +137,9 @@ router.get("/:id/messages", authGuard, async (req: AuthenticatedRequest, res) =>
       "user",
       req.user.userId,
       `SELECT sm.*, 
-              CASE 
-                WHEN sm.sender_type = 'user' THEN u.username
-                WHEN sm.sender_type = 'employee' THEN e.username
-              END as sender_username
+              u.username as user_username
        FROM support_messages sm
        LEFT JOIN users u ON u.user_id = sm.sender_id AND sm.sender_type = 'user'
-       LEFT JOIN employees e ON e.employee_id = sm.sender_id AND sm.sender_type = 'employee'
        WHERE sm.request_id = $1
        ORDER BY sm.created_at ASC`,
       [requestId],
@@ -159,7 +151,10 @@ router.get("/:id/messages", authGuard, async (req: AuthenticatedRequest, res) =>
         requestId: row.request_id,
         senderType: row.sender_type,
         senderId: row.sender_id,
-        senderUsername: row.sender_username,
+        // Для сообщений от пользователя показываем username, для сотрудников - общее имя
+        senderUsername: row.sender_type === 'user' 
+          ? row.user_username 
+          : (row.sender_type === 'employee' ? "Сотрудник поддержки" : "Система"),
         message: row.message,
         createdAt: row.created_at,
       })),
@@ -185,24 +180,36 @@ router.post("/:id/messages", authGuard, async (req: AuthenticatedRequest, res) =
     return res.status(400).json({ message: "Некорректный идентификатор обращения" });
   }
 
-    const parseResult = messageSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      const errors = parseResult.error.flatten();
-      const message = errors.fieldErrors.message?.[0] || errors.formErrors[0] || "Некорректные данные";
-      return res.status(400).json({ message, issues: errors });
-    }
+  const parseResult = messageSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const errors = parseResult.error.flatten();
+    const message = errors.fieldErrors.message?.[0] || errors.formErrors[0] || "Некорректные данные";
+    return res.status(400).json({ message, issues: errors });
+  }
 
   try {
-    // Проверяем, что обращение принадлежит пользователю
+    // Проверяем, что обращение принадлежит пользователю И его статус не завершен
     const checkRequest = await executeQuery(
       "user",
       req.user.userId,
-      `SELECT request_id FROM support_requests WHERE request_id = $1 AND user_id = $2`,
+      `SELECT request_id, status FROM support_requests WHERE request_id = $1 AND user_id = $2`,
       [requestId, req.user.userId],
     );
 
     if (checkRequest.rows.length === 0) {
       return res.status(403).json({ message: "Обращение не найдено" });
+    }
+
+    const requestStatus = checkRequest.rows[0].status;
+    
+    // Определяем завершенные статусы
+    const completedStatuses = ['Завершен', 'Закрыт', 'Решен', 'Выполнен'];
+    
+    if (completedStatuses.includes(requestStatus)) {
+      return res.status(400).json({ 
+        message: "Нельзя отправить сообщение в завершенную заявку",
+        details: `Статус заявки: ${requestStatus}`
+      });
     }
 
     const { rows } = await executeQuery(
@@ -229,4 +236,3 @@ router.post("/:id/messages", authGuard, async (req: AuthenticatedRequest, res) =
 });
 
 export default router;
-

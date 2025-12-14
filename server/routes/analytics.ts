@@ -12,25 +12,41 @@ router.get("/metrics", authGuard, requireRole("analyst", "admin"), async (req: A
 
     let dateFilter = "";
     if (period === "day") {
-      dateFilter = "sale_date >= CURRENT_DATE";
+      dateFilter = "s.sale_date >= CURRENT_DATE";
     } else if (period === "week") {
-      dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '7 days'";
+      dateFilter = "s.sale_date >= CURRENT_DATE - INTERVAL '7 days'";
     } else if (period === "month") {
-      dateFilter = "sale_date >= CURRENT_DATE - INTERVAL '30 days'";
+      dateFilter = "s.sale_date >= CURRENT_DATE - INTERVAL '30 days'";
     }
 
     // Количество заказов
     const ordersCount = await executeQuery(
       "analyst",
       undefined,
-      `SELECT COUNT(*) as count FROM sales WHERE status != 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
+      `SELECT COUNT(*) as count FROM sales s WHERE s.status != 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
     );
 
-    // Общая выручка
+    // Общая выручка: (цена товара - себестоимость) * количество проданных товаров
+    // Если нет записи о себестоимости в purchases - выручка = 0
     const revenue = await executeQuery(
       "analyst",
       undefined,
-      `SELECT COALESCE(SUM(amount), 0) as total FROM sales WHERE status != 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
+      `SELECT COALESCE(SUM(
+        CASE 
+          WHEN p.cost_price IS NULL THEN 0
+          ELSE (a.price - p.cost_price)
+        END
+      ), 0) as total 
+      FROM sales s
+      INNER JOIN apps a ON a.app_id = s.app_id
+      LEFT JOIN LATERAL (
+        SELECT cost_price 
+        FROM purchases 
+        WHERE app_id = a.app_id 
+        ORDER BY purchase_date DESC 
+        LIMIT 1
+      ) p ON true
+      WHERE s.status != 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
     );
 
     // Новые пользователи
@@ -44,14 +60,14 @@ router.get("/metrics", authGuard, requireRole("analyst", "admin"), async (req: A
     const returns = await executeQuery(
       "analyst",
       undefined,
-      `SELECT COUNT(*) as count FROM sales WHERE status = 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
+      `SELECT COUNT(*) as count FROM sales s WHERE s.status = 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
     );
 
     // Средний чек
     const avgCheck = await executeQuery(
       "analyst",
       undefined,
-      `SELECT COALESCE(AVG(amount), 0) as avg FROM sales WHERE status != 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
+      `SELECT COALESCE(AVG(s.amount), 0) as avg FROM sales s WHERE s.status != 'Отменен' ${dateFilter ? `AND ${dateFilter}` : ""}`,
     );
 
     // Количество обращений в поддержку
@@ -82,9 +98,22 @@ router.get("/top-apps", authGuard, requireRole("analyst", "admin"), async (req: 
     const { rows } = await executeQuery(
       "analyst",
       undefined,
-      `SELECT a.app_id, a.title, COUNT(s.sale_id) as sales_count, SUM(s.amount) as total_revenue
+      `SELECT a.app_id, a.title, COUNT(s.sale_id) as sales_count, 
+              COALESCE(SUM(
+                CASE 
+                  WHEN p.cost_price IS NULL THEN 0
+                  ELSE (a.price - p.cost_price)
+                END
+              ), 0) as total_revenue
        FROM apps a
        INNER JOIN sales s ON s.app_id = a.app_id
+       LEFT JOIN LATERAL (
+         SELECT cost_price 
+         FROM purchases 
+         WHERE app_id = a.app_id 
+         ORDER BY purchase_date DESC 
+         LIMIT 1
+       ) p ON true
        WHERE s.status != 'Отменен'
        GROUP BY a.app_id, a.title
        ORDER BY sales_count DESC
@@ -113,13 +142,26 @@ router.get("/sales-by-day", authGuard, requireRole("analyst", "admin"), async (r
     const { rows } = await executeQuery(
       "analyst",
       undefined,
-      `SELECT DATE(sale_date) as date, 
+      `SELECT DATE(s.sale_date) as date, 
               COUNT(*) as orders_count, 
-              SUM(amount) as revenue
-       FROM sales
-       WHERE status != 'Отменен' 
-         AND sale_date >= CURRENT_DATE - INTERVAL '${days} days'
-       GROUP BY DATE(sale_date)
+              COALESCE(SUM(
+                CASE 
+                  WHEN p.cost_price IS NULL THEN 0
+                  ELSE (a.price - p.cost_price)
+                END
+              ), 0) as revenue
+       FROM sales s
+       INNER JOIN apps a ON a.app_id = s.app_id
+       LEFT JOIN LATERAL (
+         SELECT cost_price 
+         FROM purchases 
+         WHERE app_id = a.app_id 
+         ORDER BY purchase_date DESC 
+         LIMIT 1
+       ) p ON true
+       WHERE s.status != 'Отменен' 
+         AND s.sale_date >= CURRENT_DATE - INTERVAL '${days} days'
+       GROUP BY DATE(s.sale_date)
        ORDER BY date ASC`,
     );
 
@@ -144,10 +186,22 @@ router.get("/sales-by-category", authGuard, requireRole("analyst", "admin"), asy
       undefined,
       `SELECT c.category_id, c.title, 
               COUNT(s.sale_id) as sales_count, 
-              SUM(s.amount) as revenue
+              COALESCE(SUM(
+                CASE 
+                  WHEN p.cost_price IS NULL THEN 0
+                  ELSE (a.price - p.cost_price)
+                END
+              ), 0) as revenue
        FROM categories c
        INNER JOIN apps a ON a.category_id = c.category_id
        INNER JOIN sales s ON s.app_id = a.app_id
+       LEFT JOIN LATERAL (
+         SELECT cost_price 
+         FROM purchases 
+         WHERE app_id = a.app_id 
+         ORDER BY purchase_date DESC 
+         LIMIT 1
+       ) p ON true
        WHERE s.status != 'Отменен'
        GROUP BY c.category_id, c.title
        ORDER BY revenue DESC`,

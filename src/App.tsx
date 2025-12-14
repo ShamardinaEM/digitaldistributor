@@ -9,6 +9,7 @@ import ModerationPage from "./pages/ModerationPage";
 import EmployeeSupportPage from "./pages/EmployeeSupportPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import ProviderPage from "./pages/ProviderPage";
+import AddProductsPage from "./pages/AddProductsPage";
 import MainLayout from "./components/layout/MainLayout";
 import AuthModal from "./components/auth/AuthModal";
 import Notification from "./components/Notification";
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="employee-support" element={<EmployeeSupportPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="providers/:id" element={<ProviderPage />} />
+          <Route path="add-products" element={<AddProductsPage />} />
         </Route>
       </Routes>
     </>
