@@ -41,11 +41,11 @@ router.post("/", authGuard, async (req: AuthenticatedRequest, res) => {
       "user",
       req.user.userId,
       `
-        INSERT INTO support_requests (user_id, subject, message, priority, status, created_at)
-        VALUES ($1, $2, $3, $4, 'Создан', NOW())
+        INSERT INTO support_requests (user_id, subject, message, priority, status, created_at, order_id)
+        VALUES ($1, $2, $3, $4, 'Создан', NOW(), $5)
         RETURNING request_id, created_at, status
       `,
-      [req.user.userId, subject, message, priority],
+      [req.user.userId, subject, message, priority, orderId],
     );
 
     const requestId = rows[0].request_id;
@@ -85,8 +85,12 @@ router.get("/", authGuard, async (req: AuthenticatedRequest, res) => {
     const { rows } = await executeQuery(
       "user",
       req.user.userId,
-      `SELECT sr.*
+      `SELECT sr.*, 
+              s.sale_id as order_id, s.status as order_status, s.amount as order_amount,
+              a.title as app_title, a.app_id
        FROM support_requests sr
+       LEFT JOIN sales s ON s.sale_id = sr.order_id
+       LEFT JOIN apps a ON a.app_id = s.app_id
        WHERE sr.user_id = $1
        ORDER BY sr.created_at DESC`,
       [req.user.userId],
@@ -101,6 +105,15 @@ router.get("/", authGuard, async (req: AuthenticatedRequest, res) => {
         status: row.status,
         createdAt: row.created_at,
         takenAt: row.taken_at,
+        order: row.order_id ? {
+          id: row.order_id,
+          status: row.order_status,
+          amount: row.order_amount ? Number(row.order_amount) : null,
+          app: row.app_title ? {
+            id: row.app_id,
+            title: row.app_title,
+          } : null,
+        } : null,
       })),
     );
   } catch (error) {

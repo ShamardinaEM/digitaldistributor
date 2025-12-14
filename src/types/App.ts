@@ -85,6 +85,16 @@ export interface SupportRequest {
   employeeId?: number;
   employeeUsername?: string;
   takenAt?: string;
+  closedAt?: string;
+  order?: {
+    id: number;
+    status: string;
+    amount: number | null;
+    app: {
+      id: number;
+      title: string;
+    } | null;
+  } | null;
 }
 
 export interface SupportMessage {

@@ -11,17 +11,25 @@ router.get("/requests", authGuard, requireRole("support", "admin"), async (req: 
     const status = req.query.status as string | undefined;
     const query = status
       ? `SELECT sr.*, u.username as user_username, u.email as user_email,
-                e.username as employee_username
+                e.username as employee_username,
+                s.sale_id as order_id, s.status as order_status, s.amount as order_amount,
+                a.title as app_title, a.app_id
          FROM support_requests sr
          INNER JOIN users u ON u.user_id = sr.user_id
          LEFT JOIN employees e ON e.employee_id = sr.employee_id
+         LEFT JOIN sales s ON s.sale_id = sr.order_id
+         LEFT JOIN apps a ON a.app_id = s.app_id
          WHERE sr.status = $1
          ORDER BY sr.created_at DESC`
       : `SELECT sr.*, u.username as user_username, u.email as user_email,
-                e.username as employee_username
+                e.username as employee_username,
+                s.sale_id as order_id, s.status as order_status, s.amount as order_amount,
+                a.title as app_title, a.app_id
          FROM support_requests sr
          INNER JOIN users u ON u.user_id = sr.user_id
          LEFT JOIN employees e ON e.employee_id = sr.employee_id
+         LEFT JOIN sales s ON s.sale_id = sr.order_id
+         LEFT JOIN apps a ON a.app_id = s.app_id
          ORDER BY sr.created_at DESC`;
 
     const { rows } = await executeQuery(
@@ -45,6 +53,16 @@ router.get("/requests", authGuard, requireRole("support", "admin"), async (req: 
         employeeId: row.employee_id,
         employeeUsername: row.employee_username,
         takenAt: row.taken_at,
+        closedAt: row.closed_at,
+        order: row.order_id ? {
+          id: row.order_id,
+          status: row.order_status,
+          amount: row.order_amount ? Number(row.order_amount) : null,
+          app: row.app_title ? {
+            id: row.app_id,
+            title: row.app_title,
+          } : null,
+        } : null,
       })),
     );
   } catch (error) {
@@ -205,7 +223,7 @@ router.patch("/requests/:id/close", authGuard, requireRole("admin"), async (req:
       "admin",
       undefined,
       `UPDATE support_requests 
-       SET status = 'Завершен'
+       SET status = 'Завершен', closed_at = NOW()
        WHERE request_id = $1 
        RETURNING *`,
       [requestId],

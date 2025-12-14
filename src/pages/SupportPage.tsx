@@ -207,8 +207,24 @@ export default function SupportPage() {
                   <strong>{request.subject}</strong>
                   <span style={{ color: getStatusColor(request.status), fontSize: 12 }}>{request.status}</span>
                 </div>
+                {request.order && (
+                  <div style={{ marginBottom: 8, padding: 8, background: "#0f1419", borderRadius: 6 }}>
+                    <p style={{ margin: 0, color: "#9fb2ff", fontSize: 12, fontWeight: 600 }}>
+                      Заказ #{request.order.id}
+                    </p>
+                    {request.order.app && (
+                      <p style={{ margin: "4px 0 0 0", color: "#b4bfd6", fontSize: 11 }}>
+                        {request.order.app.title}
+                      </p>
+                    )}
+                    <p style={{ margin: "4px 0 0 0", color: "#b4bfd6", fontSize: 11 }}>
+                      Статус: {request.order.status}
+                      {request.order.amount && ` • ${request.order.amount.toLocaleString("ru-RU")} ₽`}
+                    </p>
+                  </div>
+                )}
                 <p style={{ margin: 0, color: "#b4bfd6", fontSize: 12 }}>
-                  {new Date(request.createdAt).toLocaleDateString("ru-RU")}
+                  Создано: {new Date(request.createdAt).toLocaleString("ru-RU")}
                 </p>
                 {request.employeeUsername && (
                   <p style={{ margin: "4px 0 0 0", color: "#9fb2ff", fontSize: 12 }}>
@@ -221,19 +237,64 @@ export default function SupportPage() {
           </div>
         )}
       </div>
-      {selectedRequest && !showForm && (
-        <div>
-          <h2>Чат</h2>
-          <div
-            style={{
-              background: "#151b28",
-              padding: 20,
-              borderRadius: 16,
-              height: "70vh",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
+      {selectedRequest && !showForm && (() => {
+        const request = requests.find((r) => r.id === selectedRequest);
+        return (
+          <div>
+            <h2>Чат</h2>
+            {request?.order && (
+              <div
+                style={{
+                  background: "#151b28",
+                  padding: 16,
+                  borderRadius: 12,
+                  marginBottom: 16,
+                  border: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#9fb2ff" }}>Информация о заказе</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <p style={{ margin: 0, color: "#b4bfd6", fontSize: 12 }}>Номер заказа</p>
+                    <p style={{ margin: "4px 0 0 0", color: "#e0e6ed", fontSize: 14, fontWeight: 600 }}>
+                      #{request.order.id}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, color: "#b4bfd6", fontSize: 12 }}>Статус заказа</p>
+                    <p style={{ margin: "4px 0 0 0", color: "#e0e6ed", fontSize: 14, fontWeight: 600 }}>
+                      {request.order.status}
+                    </p>
+                  </div>
+                  {request.order.app && (
+                    <div>
+                      <p style={{ margin: 0, color: "#b4bfd6", fontSize: 12 }}>Товар</p>
+                      <p style={{ margin: "4px 0 0 0", color: "#e0e6ed", fontSize: 14 }}>
+                        {request.order.app.title}
+                      </p>
+                    </div>
+                  )}
+                  {request.order.amount && (
+                    <div>
+                      <p style={{ margin: 0, color: "#b4bfd6", fontSize: 12 }}>Сумма</p>
+                      <p style={{ margin: "4px 0 0 0", color: "#e0e6ed", fontSize: 14, fontWeight: 600 }}>
+                        {request.order.amount.toLocaleString("ru-RU")} ₽
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            <div
+              style={{
+                background: "#151b28",
+                padding: 20,
+                borderRadius: 16,
+                height: "70vh",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
             <div style={{ flex: 1, overflowY: "auto", marginBottom: 16 }}>
               {messages.map((msg) => (
                 <div
@@ -296,7 +357,8 @@ export default function SupportPage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

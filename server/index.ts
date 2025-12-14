@@ -126,6 +126,18 @@ async function ensureTables() {
       ) THEN
         ALTER TABLE support_requests ADD COLUMN taken_at TIMESTAMPTZ;
       END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'support_requests' AND column_name = 'order_id'
+      ) THEN
+        ALTER TABLE support_requests ADD COLUMN order_id INT REFERENCES sales(sale_id) ON DELETE SET NULL;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'support_requests' AND column_name = 'closed_at'
+      ) THEN
+        ALTER TABLE support_requests ADD COLUMN closed_at TIMESTAMPTZ;
+      END IF;
     END $$;
   `);
 
